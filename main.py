@@ -1,5 +1,6 @@
 import time
 import os
+import re
 
 from bs4 import BeautifulSoup
 from selenium import webdriver
@@ -160,6 +161,9 @@ def politician_data_shaping(html):
     blog_url = detail_data[5]
     # 整形
     picture_url = image_tag.find('img')['src']
+    if picture_url == '/img/cmn/no-image_p.png':
+        # no imageの場合はリンクを削除
+        picture_url = None
     name = name_tag.find('a').string
     kana_name = name_tag.find('span').string
     detail_url = 'https://go2senkyo.com/' + name_tag.find('a')['href']
@@ -261,30 +265,10 @@ def main():
                 df = pd.DataFrame(data)
                 df.to_csv(CurrentPath + '/out/' + party_name + '_' + change_id_into_name(prefecture_id) + '_' + city_name + '.csv', encoding='utf-8_sig')
                 df.to_json(CurrentPath + '/output/' + party_name + '_' + change_id_into_name(prefecture_id) + '_' + city_name + '.json', force_ascii=False)
-                # df = pd.DataFrame(data)
-                # df.to_csv(CurrentPath + '/out/' + party_name + '_' + change_id_into_name(prefecture_id) + '_' + city_name + '.csv', encoding='utf-8_sig')
-                # df.to_json(CurrentPath + '/output/' + party_name + '_' + change_id_into_name(prefecture_id) + '_' + city_name + '.json', force_ascii=False)
-                # end
                 driver.quit()
                 break
             break
         break
-
-    # # 詳細データ収集
-    # for party_name in party_names:
-    #     for prefecture_id in range(1, 48):
-    #         for city_name in city_names_data[prefecture_id]:
-    #             with open(CurrentPath + '/out/' + party_name + '_' + change_id_into_name(prefecture_id) + '_' + city_name + '.csv', 'r', encoding='utf-8') as json_file:
-    #                 target_data = json.load(json_file)
-    #                 detail_url_list = data['detail_url']
-    #                 # ここでtarget_dataの中身を編集
-    #                 fetch_detail_data(detail_url_list, target_data)
-    #                 df = pd.DataFrame(target_data)
-    #                 df.to_csv(CurrentPath + '/out/out/' + party_name + '_' + change_id_into_name(prefecture_id) + '_' + city_name + '.csv', encoding='utf-8_sig')
-    #                 df.to_json(CurrentPath + '/output/out/' + party_name + '_' + change_id_into_name(prefecture_id) + '_' + city_name + '.json', force_ascii=False)
-    #             break
-    #         break
-    #     break
 
 
 def fetch_detail_data(url_list: list, data: dict):
@@ -316,10 +300,17 @@ def fetch_detail_data(url_list: list, data: dict):
         # さらに詳細に処理
         name = election_data_td_tag.find('a').string
         day = election_data_td_tag.find('span').string
-        info = election_data_td_tag.string
+        info = election_data_td_tag.text
+        # うまく取得できないので処理を加える
+        start: int = re.search('\\[+\\]+票', info)
+        info = info[start:]
+        # end
         district = election_area_td_tag.find('a').string
         other = election_other_data_td_tag.string
-        website = web_site_td_tag  # ここ要修正
+        website = web_site_td_tag.find('ul')
+        if website is not None:
+            website_li_tags = website.find_all('li')
+            website = list(map(lambda li_tag: li_tag.find('a')['href'], website_li_tags))
         # 配列に格納
         election_district.append(district)
         election_name.append(name)
