@@ -1,7 +1,6 @@
 import time
 import os
 
-
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.support.select import Select
@@ -256,16 +255,87 @@ def main():
                 # 情報取得
                 data = fetch_politician_data(driver)
                 # output
+                detail_url_list = data['detail_url']
+                # ここでtarget_dataの中身を編集
+                fetch_detail_data(detail_url_list, data)
                 df = pd.DataFrame(data)
                 df.to_csv(CurrentPath + '/out/' + party_name + '_' + change_id_into_name(prefecture_id) + '_' + city_name + '.csv', encoding='utf-8_sig')
                 df.to_json(CurrentPath + '/output/' + party_name + '_' + change_id_into_name(prefecture_id) + '_' + city_name + '.json', force_ascii=False)
+                # df = pd.DataFrame(data)
+                # df.to_csv(CurrentPath + '/out/' + party_name + '_' + change_id_into_name(prefecture_id) + '_' + city_name + '.csv', encoding='utf-8_sig')
+                # df.to_json(CurrentPath + '/output/' + party_name + '_' + change_id_into_name(prefecture_id) + '_' + city_name + '.json', force_ascii=False)
                 # end
+                driver.quit()
                 break
             break
         break
 
-    # 詳細データ収集
-    
+    # # 詳細データ収集
+    # for party_name in party_names:
+    #     for prefecture_id in range(1, 48):
+    #         for city_name in city_names_data[prefecture_id]:
+    #             with open(CurrentPath + '/out/' + party_name + '_' + change_id_into_name(prefecture_id) + '_' + city_name + '.csv', 'r', encoding='utf-8') as json_file:
+    #                 target_data = json.load(json_file)
+    #                 detail_url_list = data['detail_url']
+    #                 # ここでtarget_dataの中身を編集
+    #                 fetch_detail_data(detail_url_list, target_data)
+    #                 df = pd.DataFrame(target_data)
+    #                 df.to_csv(CurrentPath + '/out/out/' + party_name + '_' + change_id_into_name(prefecture_id) + '_' + city_name + '.csv', encoding='utf-8_sig')
+    #                 df.to_json(CurrentPath + '/output/out/' + party_name + '_' + change_id_into_name(prefecture_id) + '_' + city_name + '.json', force_ascii=False)
+    #             break
+    #         break
+    #     break
+
+
+def fetch_detail_data(url_list: list, data: dict):
+    '''各政治家の詳細情報を取得'''
+    election_district: list = []  # 選挙区情報
+    election_name: list = []  # 選挙名
+    election_day: list = []  # 選挙日
+    election_info: list = []  # 票数
+    other_info: list = []  # その他
+    web_site_info: list = []  # サイト
+    for url in url_list:
+        driver = webdriver.Chrome()
+        driver.get(url)
+        time.sleep(2)
+        html = driver.page_source
+        soup = BeautifulSoup(html, 'lxml')
+        # beautiful soup で情報を抽出
+        profile_data = soup.find(class_='p_seijika_profle_data_table small')
+        if profile_data is None:
+            # https://go2senkyo.com//seijika/126816 などの例外がある。
+            profile_data = soup.find(class_='p_seijika_profle_data_table')
+        profile_data_tbody = profile_data.find('tbody')
+        profile_data_tr_tags = profile_data_tbody.find_all('tr')
+        # それぞれについて処理
+        election_data_td_tag = profile_data_tr_tags[0].find('td')  # 選挙名, 日付, 当選可否, 票数
+        election_area_td_tag = profile_data_tr_tags[1].find('td')  # 選挙区
+        election_other_data_td_tag = profile_data_tr_tags[2].find('td')  # その他
+        web_site_td_tag = profile_data_tr_tags[3].find('td')  # サイト
+        # さらに詳細に処理
+        name = election_data_td_tag.find('a').string
+        day = election_data_td_tag.find('span').string
+        info = election_data_td_tag.string
+        district = election_area_td_tag.find('a').string
+        other = election_other_data_td_tag.string
+        website = web_site_td_tag  # ここ要修正
+        # 配列に格納
+        election_district.append(district)
+        election_name.append(name)
+        election_day.append(day)
+        election_info.append(info)
+        other_info.append(other)
+        web_site_info.append(website)
+        time.sleep(0.5)
+        driver.quit()
+    # データを反映
+    data['election_name'] = election_name
+    data['election_distric'] = election_district
+    data['election_day'] = election_day
+    data['election_info'] = election_info
+    data['other_info'] = other_info
+    data['web_site_info'] = web_site_info
 
 
 if __name__ == '__main__':
