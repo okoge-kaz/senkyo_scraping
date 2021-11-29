@@ -96,7 +96,11 @@ def fetch_politician_data(driver):
         is_exist_flag = is_exist_check(soup)
         if is_exist_flag:
             # 続きをみるを押す
-            target_p_tag = driver.find_element_by_class_name('ygreenk')
+            try:
+                target_p_tag = driver.find_element_by_class_name('ygreenk')
+            except Exception:
+                is_exist_flag = False
+                continue
             # target_p_tag.find_element_by_tag_name('span').click()
             driver.execute_script("arguments[0].click();", target_p_tag.find_element_by_tag_name('span'))
             time.sleep(3)
@@ -123,7 +127,12 @@ def extract_politician_detail_data(html):
     detail_url: list = []
     blog_url: list = []
     #
-    target_tables = html.find_all('tbody')
+    try:
+        target_tables = html.find_all('tbody')
+    except Exception:
+        # 何もデータがないときにNoneを返すように調整する。
+        return None
+
     for target_table in target_tables:
         targets = target_table.find_all('tr')
         for target in targets:
@@ -244,13 +253,13 @@ def main():
                 search_city_select = Select(driver.find_element_by_id('p_seijika_search_city'))
                 # select by visible text
                 search_party_select.select_by_visible_text(party_name)
-                time.sleep(0.5)
+                time.sleep(1.0)
                 # select by value
                 search_prefecture_select.select_by_value(str(prefecture_id))
-                time.sleep(0.5)
+                time.sleep(1.0)
                 # select by visible text
                 search_city_select.select_by_visible_text(city_name)
-                time.sleep(0.5)
+                time.sleep(1.0)
                 # 検索
                 search_button = driver.find_element_by_id('search_submit')
                 search_button.click()
@@ -258,6 +267,8 @@ def main():
                 time.sleep(5)
                 # 情報取得
                 data = fetch_politician_data(driver)
+                if data is None:
+                    continue
                 # output
                 detail_url_list = data['detail_url']
                 # ここでtarget_dataの中身を編集
@@ -266,9 +277,7 @@ def main():
                 df.to_csv(CurrentPath + '/out/' + party_name + '_' + change_id_into_name(prefecture_id) + '_' + city_name + '.csv', encoding='utf-8_sig')
                 df.to_json(CurrentPath + '/output/' + party_name + '_' + change_id_into_name(prefecture_id) + '_' + city_name + '.json', force_ascii=False)
                 driver.quit()
-                break
-            break
-        break
+                time.sleep(0.5)
 
 
 def fetch_detail_data(url_list: list, data: dict):
@@ -298,16 +307,41 @@ def fetch_detail_data(url_list: list, data: dict):
         election_other_data_td_tag = profile_data_tr_tags[2].find('td')  # その他
         web_site_td_tag = profile_data_tr_tags[3].find('td')  # サイト
         # さらに詳細に処理
-        name = election_data_td_tag.find('a').string
-        day = election_data_td_tag.find('span').string
-        info = election_data_td_tag.text
+        try:
+            name = election_data_td_tag.find('a').string
+        except AttributeError:
+            name = None
+
+        try:
+            day = election_data_td_tag.find('span').string
+        except AttributeError:
+            day = None
+
+        try:
+            info = election_data_td_tag.text
+        except AttributeError:
+            info = None
+
         # うまく取得できないので処理を加える
-        start: int = re.search('\\[+\\]+票', info)
-        info = info[start:]
+        if info is not None:
+            start: int = re.search('\\[+\\]+票', info)
+            info = info[start:]
         # end
-        district = election_area_td_tag.find('a').string
-        other = election_other_data_td_tag.string
-        website = web_site_td_tag.find('ul')
+        try:
+            district = election_area_td_tag.find('a').string
+        except AttributeError:
+            district = None
+
+        try:
+            other = election_other_data_td_tag.string
+        except AttributeError:
+            other = None
+
+        try:
+            website = web_site_td_tag.find('ul')
+        except AttributeError:
+            website = None
+
         if website is not None:
             website_li_tags = website.find_all('li')
             website = list(map(lambda li_tag: li_tag.find('a')['href'], website_li_tags))
