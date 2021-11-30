@@ -241,11 +241,17 @@ def main():
 
     # main処理
     for party_name in party_names:
-        for prefecture_id in range(1, 48):
+        for prefecture_id in range(8, 48):
             for city_name in city_names_data[prefecture_id]:
+                if party_name == '自由民主党' and prefecture_id == 1:
+                    continue
                 # init driver
                 driver = webdriver.Chrome()
-                driver.get(url)
+                try:
+                    driver.get(url)
+                except Exception:
+                    driver = webdriver.Chrome()
+                    driver.get(url)
                 time.sleep(2)
                 # selenium select
                 search_party_select = Select(driver.find_element_by_id('p_seijika_search_party'))
@@ -258,7 +264,11 @@ def main():
                 search_prefecture_select.select_by_value(str(prefecture_id))
                 time.sleep(1.0)
                 # select by visible text
-                search_city_select.select_by_visible_text(city_name)
+                try:
+                    search_city_select.select_by_visible_text(city_name)
+                except Exception:
+                    time.sleep(1)
+                    search_city_select.select_by_visible_text(city_name)
                 time.sleep(1.0)
                 # 検索
                 search_button = driver.find_element_by_id('search_submit')
