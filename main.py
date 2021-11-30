@@ -79,6 +79,8 @@ def change_id_into_name(id: int):
 
 def is_exist_check(soup):
     target_html_data = soup.find(class_='p_seijika_search_result_table_wrapp')
+    if target_html_data is None:
+        return False
     check_target_data = target_html_data.find(class_='ygreenk')
     if check_target_data is None:
         return False
@@ -225,7 +227,9 @@ def get_city_names(driver):
 
 def main():
     CurrentPath = os.getcwd()
-    driver = webdriver.Chrome()
+    options = webdriver.ChromeOptions()
+    options.add_argument('--headless')
+    driver = webdriver.Chrome(options=options)
     url: str = 'https://go2senkyo.com/seijika'
     driver.get(url)
     time.sleep(2)
@@ -241,16 +245,16 @@ def main():
 
     # main処理
     for party_name in party_names:
-        for prefecture_id in range(8, 48):
+        for prefecture_id in range(1, 48):
+            if party_name == '自由民主党' and prefecture_id < 35:
+                continue
             for city_name in city_names_data[prefecture_id]:
-                if party_name == '自由民主党' and prefecture_id == 1:
-                    continue
                 # init driver
-                driver = webdriver.Chrome()
+                driver = webdriver.Chrome(options=options)
                 try:
                     driver.get(url)
                 except Exception:
-                    driver = webdriver.Chrome()
+                    driver = webdriver.Chrome(options=options)
                     driver.get(url)
                 time.sleep(2)
                 # selenium select
@@ -299,7 +303,9 @@ def fetch_detail_data(url_list: list, data: dict):
     other_info: list = []  # その他
     web_site_info: list = []  # サイト
     for url in url_list:
-        driver = webdriver.Chrome()
+        options = webdriver.ChromeOptions()
+        options.add_argument('--headless')
+        driver = webdriver.Chrome(options=options)
         driver.get(url)
         time.sleep(2)
         html = driver.page_source
